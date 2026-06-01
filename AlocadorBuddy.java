@@ -63,6 +63,21 @@ public class AlocadorBuddy {
         preencherListasLivres(atual.direito);
     }
 
+    private No copiarArvore(No original, No pai) {
+        if (original == null) {
+            return null;
+        }
+
+        No copia = new No(original.tamanho, pai);
+        copia.estado = original.estado;
+        copia.id = original.id;
+
+        copia.esquerdo = copiarArvore(original.esquerdo, copia);
+        copia.direito = copiarArvore(original.direito, copia);
+
+        return copia;
+    }
+
     public void alocar(String id, int tamanhoSolicitado) {
         alocarInterno(id, tamanhoSolicitado, true);
     }
@@ -83,6 +98,8 @@ public class AlocadorBuddy {
             System.out.println("Erro: tamanho maior que a memoria total.");
             return false;
         }
+
+        No estadoAnterior = copiarArvore(raiz, null);
 
         No bloco = buscarBlocoLivre(raiz, tamanhoReal);
 
@@ -105,43 +122,41 @@ public class AlocadorBuddy {
         System.out.println("Fragmentacao interna: " + desperdicio + " KB");
 
         if (registrarHistorico) {
-            historico.empilhar("ALOCAR", id, tamanhoSolicitado);
+            historico.empilhar("ALOCAR", id, tamanhoSolicitado, estadoAnterior);
         }
 
         return true;
     }
 
     private No buscarBlocoLivre(No atual, int tamanhoNecessario) {
-        if (atual == null) {
-            return null;
-        }
+        int indiceNecessario = indiceLista(tamanhoNecessario);
 
-        if (atual.estado.equals("OCUPADO")) {
-            return null;
-        }
+        for (int i = indiceNecessario; i < listasLivres.length; i++) {
+            if (!listasLivres[i].estaVazia()) {
+                No bloco = listasLivres[i].buscarPrimeiro();
 
-        if (atual.estado.equals("DIVIDIDO")) {
-            No esquerda = buscarBlocoLivre(atual.esquerdo, tamanhoNecessario);
+                while (bloco.tamanho > tamanhoNecessario) {
+                    dividirComLista(bloco);
+                    bloco = bloco.esquerdo;
+                }
 
-            if (esquerda != null) {
-                return esquerda;
-            }
-
-            return buscarBlocoLivre(atual.direito, tamanhoNecessario);
-        }
-
-        if (atual.estado.equals("LIVRE")) {
-            if (atual.tamanho == tamanhoNecessario) {
-                return atual;
-            }
-
-            if (atual.tamanho > tamanhoNecessario && atual.tamanho / 2 >= BUDDY_MINIMO) {
-                dividir(atual);
-                return buscarBlocoLivre(atual.esquerdo, tamanhoNecessario);
+                listasLivres[indiceLista(bloco.tamanho)].remover(bloco);
+                return bloco;
             }
         }
 
         return null;
+    }
+
+    private void dividirComLista(No no) {
+        listasLivres[indiceLista(no.tamanho)].remover(no);
+
+        dividir(no);
+
+        int indiceFilhos = indiceLista(no.esquerdo.tamanho);
+
+        listasLivres[indiceFilhos].inserir(no.esquerdo);
+        listasLivres[indiceFilhos].inserir(no.direito);
     }
 
     private void dividir(No no) {
@@ -164,6 +179,8 @@ public class AlocadorBuddy {
             return false;
         }
 
+        No estadoAnterior = copiarArvore(raiz, null);
+
         int tamanhoBloco = bloco.tamanho;
 
         bloco.estado = "LIVRE";
@@ -175,7 +192,7 @@ public class AlocadorBuddy {
         atualizarListasLivres();
 
         if (registrarHistorico) {
-            historico.empilhar("LIBERAR", id, tamanhoBloco);
+            historico.empilhar("LIBERAR", id, tamanhoBloco, estadoAnterior);
         }
 
         tentarAtenderFila();
@@ -217,52 +234,59 @@ public class AlocadorBuddy {
             esquerdo.naoDividido() &&
             direito.naoDividido()) {
 
+            listasLivres[indiceLista(esquerdo.tamanho)].remover(esquerdo);
+            listasLivres[indiceLista(direito.tamanho)].remover(direito);
+
             pai.esquerdo = null;
             pai.direito = null;
             pai.estado = "LIVRE";
             pai.id = null;
 
+            listasLivres[indiceLista(pai.tamanho)].inserir(pai);
+
             tentarMerge(pai);
         }
     }
 
-private void tentarAtenderFila() {
-    int quantidadeInicial = filaPendentes.tamanho();
+    private void tentarAtenderFila() {
+        int quantidadeInicial = filaPendentes.tamanho();
 
-    for (int i = 0; i < quantidadeInicial; i++) {
-        Fila pendente = filaPendentes.desenfileirar();
+        for (int i = 0; i < quantidadeInicial; i++) {
+            Fila pendente = filaPendentes.desenfileirar();
 
-        int tamanhoReal = proximaPotenciaDeDois(pendente.tamanho);
+            int tamanhoReal = proximaPotenciaDeDois(pendente.tamanho);
 
-        if (tamanhoReal < BUDDY_MINIMO) {
-            tamanhoReal = BUDDY_MINIMO;
+            if (tamanhoReal < BUDDY_MINIMO) {
+                tamanhoReal = BUDDY_MINIMO;
+            }
+
+            No estadoAnterior = copiarArvore(raiz, null);
+
+            No bloco = buscarBlocoLivre(raiz, tamanhoReal);
+
+            if (bloco == null) {
+                filaPendentes.enfileirar(pendente.id, pendente.tamanho);
+            } else {
+                System.out.println("Atendendo pendente da fila: " + pendente.id);
+
+                bloco.estado = "OCUPADO";
+                bloco.id = pendente.id;
+
+                atualizarListasLivres();
+
+                int desperdicio = tamanhoReal - pendente.tamanho;
+
+                System.out.println("Alocado: " + pendente.id);
+                System.out.println("Solicitado: " + pendente.tamanho + " KB");
+                System.out.println("Bloco usado: " + tamanhoReal + " KB");
+                System.out.println("Fragmentacao interna: " + desperdicio + " KB");
+
+                historico.empilhar("ALOCAR", pendente.id, pendente.tamanho, estadoAnterior);
+            }
         }
 
-        No bloco = buscarBlocoLivre(raiz, tamanhoReal);
-
-        if (bloco == null) {
-            filaPendentes.enfileirar(pendente.id, pendente.tamanho);
-        } else {
-            System.out.println("Atendendo pendente da fila: " + pendente.id);
-
-            bloco.estado = "OCUPADO";
-            bloco.id = pendente.id;
-
-            atualizarListasLivres();
-
-            int desperdicio = tamanhoReal - pendente.tamanho;
-
-            System.out.println("Alocado: " + pendente.id);
-            System.out.println("Solicitado: " + pendente.tamanho + " KB");
-            System.out.println("Bloco usado: " + tamanhoReal + " KB");
-            System.out.println("Fragmentacao interna: " + desperdicio + " KB");
-
-            historico.empilhar("ALOCAR", pendente.id, pendente.tamanho);
-        }
+        atualizarListasLivres();
     }
-
-    atualizarListasLivres();
-}
 
     public void desfazer() {
         if (historico.estaVazia()) {
@@ -272,15 +296,13 @@ private void tentarAtenderFila() {
 
         Pilha ultima = historico.desempilhar();
 
-        if (ultima.operacao.equals("ALOCAR")) {
-            System.out.println("Desfazendo alocacao de " + ultima.id);
-            liberarInterno(ultima.id, false);
-        } else if (ultima.operacao.equals("LIBERAR")) {
-            System.out.println("Desfazendo liberacao de " + ultima.id);
-            alocarInterno(ultima.id, ultima.tamanho, false);
-        }
+        System.out.println("Desfazendo operacao: " + ultima.operacao + " " + ultima.id);
+
+        raiz = ultima.estadoAnterior;
 
         atualizarListasLivres();
+
+        System.out.println("Estado anterior restaurado com sucesso.");
     }
 
     private int proximaPotenciaDeDois(int valor) {
