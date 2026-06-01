@@ -2,8 +2,8 @@ public class NoPilha {
     private Pilha topo;
     private int tamanho;
 
-    public void empilhar(String operacao, String id, int tamanho) {
-        Pilha novo = new Pilha(operacao, id, tamanho);
+    public void empilhar(String operacao, String id, int tamanho, No estadoAnterior) {
+        Pilha novo = new Pilha(operacao, id, tamanho, estadoAnterior);
         novo.proximo = topo;
         topo = novo;
         tamanho++;
