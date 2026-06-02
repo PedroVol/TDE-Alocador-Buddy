@@ -688,11 +688,8 @@ TDE - AlocadorBuddy/
 ---
 
 ## Integrantes
+Pedro Muller Volpe - BCC
 
-```text
-Nome: Pedro Muller Volpe - BCC
-
-```
 
 ---
 
