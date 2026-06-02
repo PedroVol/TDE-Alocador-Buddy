@@ -135,28 +135,25 @@ public class AlocadorBuddy {
             if (!listasLivres[i].estaVazia()) {
                 No bloco = listasLivres[i].buscarPrimeiro();
 
-                while (bloco.tamanho > tamanhoNecessario) {
-                    dividirComLista(bloco);
-                    bloco = bloco.esquerdo;
-                }
-
                 listasLivres[indiceLista(bloco.tamanho)].remover(bloco);
-                return bloco;
+
+                return split(bloco, tamanhoNecessario);
             }
         }
 
         return null;
     }
 
-    private void dividirComLista(No no) {
-        listasLivres[indiceLista(no.tamanho)].remover(no);
+    private No split(No bloco, int tamanhoNecessario) {
+        if (bloco.tamanho == tamanhoNecessario) {
+            return bloco;
+        }
 
-        dividir(no);
+        dividir(bloco);
 
-        int indiceFilhos = indiceLista(no.esquerdo.tamanho);
+        listasLivres[indiceLista(bloco.direito.tamanho)].inserir(bloco.direito);
 
-        listasLivres[indiceFilhos].inserir(no.esquerdo);
-        listasLivres[indiceFilhos].inserir(no.direito);
+        return split(bloco.esquerdo, tamanhoNecessario);
     }
 
     private void dividir(No no) {
