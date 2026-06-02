@@ -185,7 +185,7 @@ Essas listas permitem visualizar a quantidade de blocos livres disponíveis em c
 ---
 
 ## Classes do projeto
-Observação: neste projeto, as classes Fila, Pilha e Lista representam os nós encadeados, enquanto NoFila, NoPilha e NoLista representam as estruturas que manipulam esses nós.
+Observação: neste projeto e por preferência minha, as classes Fila, Pilha e Lista representam os nós encadeados, enquanto NoFila, NoPilha e NoLista representam as estruturas que manipulam esses nós.
 ### `Main.java`
 
 Classe principal do sistema.
